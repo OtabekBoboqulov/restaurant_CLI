@@ -17,6 +17,7 @@ A Python-based restaurant management system with MySQL database integration, fea
 - Required Python packages:
   - `mysql-connector-python`
   - `colorama`
+  - `python-dotenv`
 
 ## Installation
 
@@ -27,8 +28,15 @@ A Python-based restaurant management system with MySQL database integration, fea
    ```
 
 2. **Install dependencies**
+   
+   Option 1 - Using requirements.txt (recommended):
    ```bash
-   pip install mysql-connector-python colorama
+   pip install -r requirements.txt
+   ```
+   
+   Option 2 - Manual installation:
+   ```bash
+   pip install mysql-connector-python colorama python-dotenv
    ```
 
 3. **Set up MySQL Database**
@@ -38,6 +46,12 @@ A Python-based restaurant management system with MySQL database integration, fea
    ```sql
    CREATE DATABASE milliy_taomlar;
    USE milliy_taomlar;
+
+   -- Category table
+   CREATE TABLE category (
+       id INT PRIMARY KEY,
+       name VARCHAR(100)
+   );
 
    -- Staff table
    CREATE TABLE staff (
@@ -55,8 +69,10 @@ A Python-based restaurant management system with MySQL database integration, fea
    -- Meal table
    CREATE TABLE meal (
        id INT PRIMARY KEY,
+       category_id INT,
        name VARCHAR(100),
-       price DECIMAL(10, 2)
+       price DECIMAL(10, 2),
+       FOREIGN KEY (category_id) REFERENCES category(id) ON DELETE CASCADE
    );
 
    -- Orders table
@@ -80,17 +96,17 @@ A Python-based restaurant management system with MySQL database integration, fea
    );
    ```
 
-4. **Configure Database Connection**
+4. **Configure Environment Variables**
    
-   Update the MySQL credentials in the code:
-   ```python
-   mydb = mysql.connector.connect(
-       host="localhost",
-       user='your_username',      # Change this
-       passwd='your_password',    # Change this
-       database=DATABASE_NAME
-   )
+   Create a `.env` file in the project root directory:
+   ```env
+   DB_NAME=milliy_taomlar
+   DB_HOST=localhost
+   DB_USER=root
+   PASSWORD=your_database_password
    ```
+   
+   **Important**: Add `.env` to your `.gitignore` file to avoid committing sensitive credentials!
 
 ## Usage
 
@@ -102,7 +118,7 @@ python main.py
 
 ### Login Credentials
 
-- **Admin Access**: Use password `54620061`
+- **Admin Access**: Use the password configured in your `.env` file (PASSWORD variable)
 - **Waiter Access**: Use your waiter ID (staff ID from database)
 
 ### Waiter Features
@@ -139,14 +155,55 @@ python main.py
 4. **Exit**
    - Logout from the system
 
+### Admin Features
+
+1. **Add Meal**
+   - View existing meal categories
+   - Select category for new meal
+   - Check if meal already exists in selected category
+   - Add new meal with name and price
+
+2. **Change Meal Info**
+   - View all meals in database
+   - Select meal to edit
+   - Update meal price
+
+3. **Delete Meal**
+   - View all meals in database
+   - Select meal to delete
+   - Confirm deletion (cascades to related orders)
+
+4. **Waiter Sales Info**
+   - View comprehensive sales statistics per waiter:
+     - Total revenue served
+     - Number of customers served
+   - Filter options:
+     - Sort by total served price (ascending/descending)
+     - Sort by customers served (ascending/descending)
+     - Limit number of results displayed
+
+5. **Sales by Meals**
+   - View comprehensive sales statistics per meal:
+     - Total revenue generated
+     - Total quantity sold
+   - Filter options:
+     - Sort by total sold price (ascending/descending)
+     - Sort by total sold number (ascending/descending)
+     - Limit number of results displayed
+
+6. **Exit**
+   - Logout from the system
+
 ## Project Structure
 
 ```
 milliy_taomlar/
 │
 ├── main.py              # Main application file
-├── README.md            # This file
-└── requirements.txt     # Python dependencies (optional)
+├── requirements.txt     # Python dependencies
+├── .env                 # Environment variables (DO NOT COMMIT)
+├── .gitignore           # Git ignore file
+└── README.md            # This file
 ```
 
 ## Key Functions
@@ -171,29 +228,6 @@ The application uses colorama for colored console output:
 - **Magenta**: Footer information
 - **White**: General text
 
-## Database Schema
-
-```
-┌─────────┐         ┌──────────┐         ┌──────┐
-│ staff   │         │ orders   │         │ meal │
-├─────────┤         ├──────────┤         ├──────┤
-│ id (PK) │────┐    │ id (PK)  │    ┌────│ id   │
-│ first_  │    └───→│ staff_id │    │    │ name │
-│ last_   │         │ customer │    │    │ price│
-└─────────┘         │ ordered_ │    │    └──────┘
-                    └──────────┘    │
-                         │          │
-                         ↓          │
-                    ┌──────────┐    │
-                    │ordermeal │    │
-                    ├──────────┤    │
-                    │ id (PK)  │    │
-                    │ order_id │←───┘
-                    │ meal_id  │←────┘
-                    │ quantity │
-                    └──────────┘
-```
-
 ## Error Handling
 
 The application includes error handling for:
@@ -203,9 +237,6 @@ The application includes error handling for:
 - Invalid meal IDs
 - General exceptions during operations
 
-## Future Enhancements
-
-- [ ] Admin panel with full CRUD operations
 
 ## Contributing
 
@@ -225,4 +256,8 @@ For questions or suggestions, please open an issue in the repository.
 
 ---
 
-**Note**: Remember to change default passwords and secure your database credentials before deploying to production!
+**Security Notes**: 
+- Always keep your `.env` file secure and never commit it to version control
+- Add `.env` to your `.gitignore` file
+- Use strong passwords for database and admin access
+- Consider implementing password hashing for production use

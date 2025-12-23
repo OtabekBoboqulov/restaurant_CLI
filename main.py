@@ -154,16 +154,17 @@ def main():
                 database=DATABASE_NAME
             )
             my_cursor = mydb.cursor()
-            my_cursor.execute(f"SELECT id, first_name FROM {DATABASE_NAME}.staff")
-            staff_ids = my_cursor.fetchall()
-            for staff_id in staff_ids:
-                if password == str(staff_id[0]):
-                    username = staff_id[1]
-                    status = 'waiter'
-                    break
-            else:
-                my_cursor = None
-                raise mysql.connector.Error('Password or waiter id is invalid.')
+            if password != PASSWORD:
+                my_cursor.execute(f"SELECT id, first_name FROM {DATABASE_NAME}.staff")
+                staff_ids = my_cursor.fetchall()
+                for staff_id in staff_ids:
+                    if password == str(staff_id[0]):
+                        username = staff_id[1]
+                        status = 'waiter'
+                        break
+                else:
+                    my_cursor = None
+                    raise mysql.connector.Error('Password or waiter id is invalid.')
         except mysql.connector.Error as err:
             print(Fore.RED + f"Failed to connect to MySQL: {err}")
     print(f'{Fore.GREEN}{Style.BRIGHT}Hello, {username}')
@@ -265,6 +266,142 @@ def main():
                         data = my_cursor.fetchall()
                         show_bill(data)
                     case 4:
+                        break
+            except Exception as e:
+                print(Fore.RED + str(e))
+        elif status == 'admin':
+            message = '''Actions:
+        1. Add meal
+        2. Change meal info
+        3. Delete meal
+        4. Waiter sales info
+        5. Sales by meals
+        6. Exit'''
+            print(Fore.BLUE + message)
+            action = int(input('Choose action: '))
+            try:
+                match action:
+                    case 1:
+                        categories_data = show_table(my_cursor, 'category')
+                        category_ids = list(zip(*categories_data[1:]))[0]
+                        category_id = int(input('To which category you want to add meal? '))
+                        if category_id not in category_ids:
+                            raise Exception('Category id is invalid.')
+                        my_cursor.execute(
+                            f'SELECT id, `name`, price FROM {DATABASE_NAME}.meal WHERE category_id = {category_id}')
+                        category_meals = my_cursor.fetchall()
+                        print_as_table(category_meals, ('id', 'name', 'price'))
+                        option = input(
+                            'If you see meal you want to add in table above it means it already exists on database.\n'
+                            'Enter "c" to cancel adding meal or "k" to keep going to add meal: ')
+                        match option:
+                            case 'c':
+                                continue
+                            case "k":
+                                name = input("Enter a name of meal you want to add: ")
+                                price = eval(input("Enter a price of meal you want to add: "))
+                                insert(my_cursor, mydb, 'meal', category_id, name, price)
+                        print(f'{Fore.GREEN}Meal added successfully.')
+                    case 2:
+                        meals_data = show_table(my_cursor, 'meal')
+                        meal_ids = list(zip(*meals_data[1:]))[0]
+                        meal_id = input('Choose meal to edit or "c" to cancel: ')
+                        if meal_id == 'c':
+                            continue
+                        else:
+                            meal_id = int(meal_id)
+                        if meal_id not in meal_ids:
+                            raise Exception('Meal id is invalid.')
+                        new_price = eval(input('Enter new price for this meal: '))
+                        update(my_cursor, mydb, 'meal', 'price', new_price, f'id = {meal_id}')
+                        print(f'{Fore.GREEN}Meal price changed successfully.')
+                    case 3:
+                        meals_data = show_table(my_cursor, 'meal')
+                        meal_ids = list(zip(*meals_data[1:]))[0]
+                        meal_id = input('Choose meal to delete or "c" to cancel: ')
+                        if meal_id == 'c':
+                            continue
+                        else:
+                            meal_id = int(meal_id)
+                        if meal_id not in meal_ids:
+                            raise Exception('Meal id is invalid.')
+                        confirmation = input(
+                            f'{Fore.YELLOW}Are you sure you want to delete this meal(No/Yes)? ').lower()
+                        if confirmation in ['y', 'yes', 'yeap', 'yeah']:
+                            delete(my_cursor, mydb, 'meal', meal_id)
+                            print(f'{Fore.GREEN}Meal deleted successfully.')
+                    case 4:
+                        my_cursor.execute(
+                            f'SELECT staff.id, first_name, last_name, sum(price * quantity), count(distinct customer_id) FROM {DATABASE_NAME}.staff '
+                            f'JOIN {DATABASE_NAME}.orders ON staff_id = staff.id '
+                            f'JOIN {DATABASE_NAME}.ordermeal ON order_id = orders.id '
+                            f'JOIN {DATABASE_NAME}.meal ON meal_id = meal.id '
+                            'GROUP BY staff.id')
+                        staff_data = my_cursor.fetchall()
+                        headers = ('id', 'First Name', 'Last Name', 'Total served price', 'Customers served')
+                        print_as_table(staff_data, headers)
+                        message = '''You can use one of these filters:
+        1. Ascending order by total served price
+        2. Descending order by total served price
+        3. Ascending order by customers served
+        4. Descending order by customers served
+        5. Main menu'''
+                        print(Fore.BLUE + message)
+                        fltr = int(input('Choose filter: '))
+                        if fltr == 5:
+                            continue
+                        else:
+                            limit = input('Enter number of staff you want to see (press <Enter> to see every staff): ')
+                        filtered_data = []
+                        match fltr:
+                            case 1:
+                                filtered_data = sorted(staff_data, key=lambda x: x[3])
+                            case 2:
+                                filtered_data = sorted(staff_data, key=lambda x: x[3], reverse=True)
+                            case 3:
+                                filtered_data = sorted(staff_data, key=lambda x: x[4])
+                            case 4:
+                                filtered_data = sorted(staff_data, key=lambda x: x[4], reverse=True)
+                        if not limit:
+                            print_as_table(filtered_data, headers)
+                        else:
+                            limit = int(limit)
+                            print_as_table(filtered_data[:limit], headers)
+                    case 5:
+                        my_cursor.execute(f'SELECT meal.id, `name`, sum(price * quantity), sum(quantity) FROM {DATABASE_NAME}.meal '
+                                          f'JOIN {DATABASE_NAME}.ordermeal ON meal_id = meal.id '
+                                          'GROUP BY meal.id')
+                        meal_data = my_cursor.fetchall()
+                        headers = ('id', 'Name', 'Total sold price', 'Total sold number')
+                        print_as_table(meal_data, headers)
+                        message = '''You can use one of these filters:
+        1. Ascending order by total sold price
+        2. Descending order by total sold price
+        3. Ascending order by total sold number
+        4. Descending order by total sold number
+        5. Main menu'''
+                        print(Fore.BLUE + message)
+                        fltr = int(input('Choose filter: '))
+                        if fltr == 5:
+                            continue
+                        else:
+                            limit = input('Enter number of staff you want to see (press <Enter> to see every staff): ')
+                        filtered_data = []
+                        match fltr:
+                            case 1:
+                                filtered_data = sorted(meal_data, key=lambda x: x[2])
+                            case 2:
+                                filtered_data = sorted(meal_data, key=lambda x: x[2], reverse=True)
+                            case 3:
+                                filtered_data = sorted(meal_data, key=lambda x: x[3])
+                            case 4:
+                                filtered_data = sorted(meal_data, key=lambda x: x[3], reverse=True)
+                        if not limit:
+                            print_as_table(filtered_data, headers)
+                        else:
+                            limit = int(limit)
+                            print_as_table(filtered_data[:limit], headers)
+                    case 6:
                         break
             except Exception as e:
                 print(Fore.RED + str(e))
