@@ -180,6 +180,19 @@ def main():
             try:
                 match action:
                     case 1:
+                        my_cursor.execute(f'SELECT * FROM {DATABASE_NAME}.`table`')
+                        tables_data = my_cursor.fetchall()
+                        print(f'{Fore.GREEN}Available tables:')
+                        free_tables = []
+                        for row in tables_data:
+                            if row[2] == 1:
+                                free_tables.append(row[0])
+                                print(f'{Fore.GREEN}Table - {row[0]}: {row[1]} people')
+                        if not free_tables:
+                            raise Exception('There is not any free table.')
+                        table_id = int(input('Enter table number: '))
+                        if table_id not in free_tables:
+                            raise Exception('Table number is invalid.')
                         show_table(my_cursor, 'meal')
                         my_cursor.execute(f'SELECT id FROM meal')
                         meal_ids = list(zip(*my_cursor.fetchall()))[0]
@@ -211,6 +224,7 @@ def main():
                             for meal in meals:
                                 insert(my_cursor, mydb, 'ordermeal', order_id, *meal)
                             print(Fore.GREEN + f'Order is accepted. Order id is {order_id}.')
+                            update(my_cursor, mydb, 'table', 'is_free', 0, f'id = {table_id}')
                     case 2:
                         waiter_orders = show_orders(my_cursor, password)
                         order_id = input('Enter order you want to edit: ')
@@ -368,9 +382,10 @@ def main():
                             limit = int(limit)
                             print_as_table(filtered_data[:limit], headers)
                     case 5:
-                        my_cursor.execute(f'SELECT meal.id, `name`, sum(price * quantity), sum(quantity) FROM {DATABASE_NAME}.meal '
-                                          f'JOIN {DATABASE_NAME}.ordermeal ON meal_id = meal.id '
-                                          'GROUP BY meal.id')
+                        my_cursor.execute(
+                            f'SELECT meal.id, `name`, sum(price * quantity), sum(quantity) FROM {DATABASE_NAME}.meal '
+                            f'JOIN {DATABASE_NAME}.ordermeal ON meal_id = meal.id '
+                            'GROUP BY meal.id')
                         meal_data = my_cursor.fetchall()
                         headers = ('id', 'Name', 'Total sold price', 'Total sold number')
                         print_as_table(meal_data, headers)
