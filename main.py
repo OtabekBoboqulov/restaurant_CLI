@@ -214,7 +214,7 @@ def main():
                     case 2:
                         waiter_orders = show_orders(my_cursor, password)
                         order_id = input('Enter order you want to edit: ')
-                        if order_id not in waiter_orders:
+                        if int(order_id) not in waiter_orders:
                             raise Exception('Order id is invalid.')
                         my_cursor.execute(
                             f'SELECT ordermeal.id, name, quantity FROM {DATABASE_NAME}.ordermeal JOIN {DATABASE_NAME}.meal '
